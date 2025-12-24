@@ -34,9 +34,9 @@ export function getGoogleAuthUrl(state?: string): string {
     return authUrl;
 }
 
-async function verifyGoogleToken(code: string) {
-    if (!code || typeof code !== 'string' || code.trim().length === 0) {
-        throw new Error("Authorization code is required");
+async function verifyGoogleIdToken(idToken: string) {
+    if (!idToken || typeof idToken !== 'string' || idToken.trim().length === 0) {
+        throw new Error("ID token is required");
     }
 
     if (!process.env.GOOGLE_CLIENT_ID) {
@@ -44,14 +44,8 @@ async function verifyGoogleToken(code: string) {
     }
 
     try {
-        const { tokens } = await googleClient.getToken(code);
-        
-        if (!tokens || !tokens.id_token) {
-            throw new Error("Failed to obtain ID token from Google");
-        }
-
         const ticket = await googleClient.verifyIdToken({
-            idToken: tokens.id_token,
+            idToken: idToken,
             audience: process.env.GOOGLE_CLIENT_ID,
         });
 
@@ -78,6 +72,38 @@ async function verifyGoogleToken(code: string) {
         };
     } catch (err) {
         const errorMessage = err instanceof Error ? err.message : "Unknown error";
+        console.error(`Error in Google ID token verification: ${errorMessage}`, err);
+        
+        if (errorMessage.includes("invalid_token") || errorMessage.includes("expired")) {
+            throw new Error("Invalid or expired ID token");
+        }
+        if (errorMessage.includes("network") || errorMessage.includes("ECONNREFUSED")) {
+            throw new Error("Failed to connect to Google authentication service");
+        }
+        
+        throw new Error(`Google ID token verification failed: ${errorMessage}`);
+    }
+}
+
+async function verifyGoogleToken(code: string) {
+    if (!code || typeof code !== 'string' || code.trim().length === 0) {
+        throw new Error("Authorization code is required");
+    }
+
+    if (!process.env.GOOGLE_CLIENT_ID) {
+        throw new Error("GOOGLE_CLIENT_ID environment variable is not set");
+    }
+
+    try {
+        const { tokens } = await googleClient.getToken(code);
+        
+        if (!tokens || !tokens.id_token) {
+            throw new Error("Failed to obtain ID token from Google");
+        }
+
+        return await verifyGoogleIdToken(tokens.id_token);
+    } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : "Unknown error";
         console.error(`Error in Google token verification: ${errorMessage}`, err);
         
         if (errorMessage.includes("invalid_grant") || errorMessage.includes("code")) {
@@ -91,14 +117,7 @@ async function verifyGoogleToken(code: string) {
     }
 }
 
-export async function loginWithGoogle(code: string) {
-  if (!code || typeof code !== 'string' || code.trim().length === 0) {
-    throw new Error("Authorization code is required");
-  }
-
-  try {
-    const googleUser = await verifyGoogleToken(code);
-
+async function createOrUpdateUser(googleUser: { googleId: string; email: string; name: string | null; profilePhoto: string | null; emailVerified: boolean }) {
     let user = await prisma.user.findUnique({
       where: { googleId: googleUser.googleId }
     });
@@ -154,6 +173,34 @@ export async function loginWithGoogle(code: string) {
         createdAt: user.createdAt,
       }
     };
+}
+
+export async function loginWithGoogleIdToken(idToken: string) {
+  if (!idToken || typeof idToken !== 'string' || idToken.trim().length === 0) {
+    throw new Error("ID token is required");
+  }
+
+  try {
+    const googleUser = await verifyGoogleIdToken(idToken);
+    return await createOrUpdateUser(googleUser);
+  } catch (err) {
+    if (err instanceof Error) {
+      throw err;
+    }
+    
+    console.error("Unexpected error in loginWithGoogleIdToken:", err);
+    throw new Error("Failed to complete Google login");
+  }
+}
+
+export async function loginWithGoogle(code: string) {
+  if (!code || typeof code !== 'string' || code.trim().length === 0) {
+    throw new Error("Authorization code is required");
+  }
+
+  try {
+    const googleUser = await verifyGoogleToken(code);
+    return await createOrUpdateUser(googleUser);
   } catch (err) {
     if (err instanceof Error) {
       throw err;
