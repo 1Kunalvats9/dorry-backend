@@ -39,11 +39,11 @@ async function verifyGoogleIdToken(idToken: string) {
     throw new Error("ID token is required");
   }
 
-  if (!process.env.GOOGLE_CLIENT_ID) {
-    throw new Error("GOOGLE_CLIENT_ID environment variable is not set");
+  const audiences: string[] = [];
+  
+  if (process.env.GOOGLE_CLIENT_ID) {
+    audiences.push(process.env.GOOGLE_CLIENT_ID);
   }
-
-  const audiences = [process.env.GOOGLE_CLIENT_ID];
   if (process.env.GOOGLE_IOS_CLIENT_ID) {
     audiences.push(process.env.GOOGLE_IOS_CLIENT_ID);
   }
@@ -51,46 +51,67 @@ async function verifyGoogleIdToken(idToken: string) {
     audiences.push(process.env.GOOGLE_ANDROID_CLIENT_ID);
   }
 
-  try {
-    const ticket = await googleClient.verifyIdToken({
-      idToken: idToken,
-      audience: audiences,
-    });
-
-    const payload = ticket.getPayload();
-
-    if (!payload) {
-      throw new Error("Failed to extract user information from Google token");
-    }
-
-    if (!payload.sub) {
-      throw new Error("Google user ID (sub) is missing");
-    }
-
-    if (!payload.email) {
-      throw new Error("Email address is missing from Google account");
-    }
-
-    return {
-      googleId: payload.sub,
-      email: payload.email,
-      name: payload.name || null,
-      profilePhoto: payload.picture || null,
-      emailVerified: payload.email_verified || false
-    };
-  } catch (err) {
-    const errorMessage = err instanceof Error ? err.message : "Unknown error";
-    console.error(`Error in Google ID token verification: ${errorMessage}`, err);
-
-    if (errorMessage.includes("invalid_token") || errorMessage.includes("expired")) {
-      throw new Error("Invalid or expired ID token");
-    }
-    if (errorMessage.includes("network") || errorMessage.includes("ECONNREFUSED")) {
-      throw new Error("Failed to connect to Google authentication service");
-    }
-
-    throw new Error(`Google ID token verification failed: ${errorMessage}`);
+  if (audiences.length === 0) {
+    throw new Error("No Google Client ID configured. Set GOOGLE_CLIENT_ID, GOOGLE_IOS_CLIENT_ID, or GOOGLE_ANDROID_CLIENT_ID");
   }
+
+  let lastError: Error | null = null;
+
+  for (const audience of audiences) {
+    try {
+      const ticket = await googleClient.verifyIdToken({
+        idToken: idToken,
+        audience: audience,
+      });
+
+      const payload = ticket.getPayload();
+      
+      if (!payload) {
+        throw new Error("Failed to extract user information from Google token");
+      }
+
+      if (!payload.sub) {
+        throw new Error("Google user ID (sub) is missing");
+      }
+
+      if (!payload.email) {
+        throw new Error("Email address is missing from Google account");
+      }
+
+      return {
+        googleId: payload.sub,
+        email: payload.email,
+        name: payload.name || null,
+        profilePhoto: payload.picture || null,
+        emailVerified: payload.email_verified || false
+      };
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "Unknown error";
+      
+      if (errorMessage.includes("Wrong recipient") || errorMessage.includes("audience")) {
+        lastError = err instanceof Error ? err : new Error(errorMessage);
+        continue;
+      }
+      
+      lastError = err instanceof Error ? err : new Error(errorMessage);
+      break;
+    }
+  }
+
+  const errorMessage = lastError instanceof Error ? lastError.message : "Unknown error";
+  console.error(`Error in Google ID token verification: ${errorMessage}`, lastError);
+  
+  if (errorMessage.includes("Wrong recipient") || errorMessage.includes("audience")) {
+    throw new Error(`ID token audience does not match any configured client ID. Configured: ${audiences.join(", ")}`);
+  }
+  if (errorMessage.includes("invalid_token") || errorMessage.includes("expired")) {
+    throw new Error("Invalid or expired ID token");
+  }
+  if (errorMessage.includes("network") || errorMessage.includes("ECONNREFUSED")) {
+    throw new Error("Failed to connect to Google authentication service");
+  }
+  
+  throw new Error(`Google ID token verification failed: ${errorMessage}`);
 }
 
 async function verifyGoogleToken(code: string) {
