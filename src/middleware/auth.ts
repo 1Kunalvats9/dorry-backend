@@ -1,5 +1,6 @@
 import {Request,Response,NextFunction} from "express";
 import { verifyToken } from "../utils/jwt.js";
+import { sendError } from "../utils/response.js";
 
 declare global{
     namespace Express{
@@ -21,18 +22,14 @@ export function authenticateToken(
         const authHeader =req.headers['authorization'];
         const token = authHeader && authHeader.split(' ')[1];
         if(!token){
-            return res.status(401).json({message: "No authentication token provided", error:"Access denied"});
+            return sendError(res, "No authentication token provided", 401);
         }
         const decoded = verifyToken(token);
         req.user = {id: decoded.userId, email: decoded.email};
         next();
     } catch (error) {
         const message = error instanceof Error ? error.message : 'Invalid token';
-    
-        return res.status(403).json({
-            error: 'Access denied',
-            message
-        });
+        return sendError(res, message, 403);
     }
 }
 
