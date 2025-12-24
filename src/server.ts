@@ -38,7 +38,7 @@ app.get("/health", (req, res) => {
 
 
 
-app.use("/auth", authRoutes);
+app.use("/api/auth", authRoutes);
 
 app.listen(PORT, () => {
     console.log(`\n\n\n-------|||Server is running on the port ${PORT}|||-------\n\n\n`);
