@@ -1,0 +1,74 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  name         String?
+  googleId     String?  @unique
+  profilePhoto String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  documents Document[]
+  chats     Chat[]
+
+  @@index([email])
+  @@index([googleId])
+}
+
+model Document {
+  id         String   @id @default(uuid())
+  userId     String
+  filename   String
+  fileUrl    String
+  fileType   String
+  content    String   @db.Text
+  uploadedAt DateTime @default(now())
+
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  chunks Chunk[]
+
+  @@index([userId])
+  @@index([uploadedAt])
+}
+
+model Chunk {
+  id            String   @id @default(uuid())
+  documentId    String
+  content       String   @db.Text
+  qdrantPointId String?
+  chunkIndex    Int
+  tokenCount    Int      @default(0)
+  createdAt     DateTime @default(now())
+  document      Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([documentId])
+  @@index([chunkIndex])
+}
+
+model Chat {
+  id        String   @id @default(uuid())
+  userId    String
+  messages  Json
+  title     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([createdAt])
+}
