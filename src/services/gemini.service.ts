@@ -60,23 +60,23 @@ export async function generateGeneralResponse(
 
   const prompt = `You are a helpful AI assistant.
 
-${historyText ? `Previous conversation:\n${historyText}\n\n` : ""}User Question: ${userQuery}
+  ${historyText ? `Previous conversation:\n${historyText}\n\n` : ""}User Question: ${userQuery}
 
-Please provide a helpful and accurate response.
+  Please provide a helpful and accurate response in a friendly tone.
 
-Answer:`;
+  Answer:`;
 
-  try {
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    return response.text();
-  } catch (error) {
-    console.error("Gemini API error:", error);
-    throw new Error(
-      error instanceof Error
-        ? `Failed to generate response: ${error.message}`
-        : "Failed to generate response"
-    );
-  }
+    try {
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+      return response.text();
+    } catch (error) {
+      console.error("Gemini API error:", error);
+      throw new Error(
+        error instanceof Error
+          ? `Failed to generate response: ${error.message}`
+          : "Failed to generate response"
+      );
+    }
 }
 
