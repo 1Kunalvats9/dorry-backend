@@ -24,6 +24,7 @@ model User {
 
   documents Document[]
   chats     Chat[]
+  chunks    Chunk[]
 
   @@index([email])
   @@index([googleId])
@@ -48,14 +49,18 @@ model Document {
 model Chunk {
   id            String   @id @default(uuid())
   documentId    String
+  userId        String
   content       String   @db.Text
   qdrantPointId String?
   chunkIndex    Int
   tokenCount    Int      @default(0)
   createdAt     DateTime @default(now())
-  document      Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([documentId])
+  @@index([userId])
   @@index([chunkIndex])
 }
 

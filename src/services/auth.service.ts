@@ -289,6 +289,13 @@ export async function deleteUserAccount(userId: string) {
       throw new Error("User not found");
     }
 
+    const { deleteUserChunks } = await import("./qdrant.service.js");
+    try {
+      await deleteUserChunks(userId);
+    } catch (qdrantErr) {
+      console.error("Error deleting Qdrant chunks (continuing with user deletion):", qdrantErr);
+    }
+
     await prisma.user.delete({
       where: { id: userId },
     });

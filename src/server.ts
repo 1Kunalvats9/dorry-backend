@@ -6,6 +6,10 @@ import helmet from "helmet";
 import path from "path";
 import { fileURLToPath } from "url";
 import authRoutes from "./routes/auth.routes.js";
+import ingestRoutes from "./routes/ingest.routes.js";
+import chatRoutes from "./routes/chat.routes.js";
+import documentRoutes from "./routes/document.routes.js";
+import { initQdrant } from "./services/qdrant.service.js";
 dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
@@ -39,6 +43,13 @@ app.get("/health", (req, res) => {
 
 
 app.use("/api/auth", authRoutes);
+app.use("/api/ingest", ingestRoutes);
+app.use("/api/chat", chatRoutes);
+app.use("/api/documents", documentRoutes);
+
+initQdrant().catch((err) => {
+  console.error("Failed to initialize Qdrant:", err);
+});
 
 app.listen(PORT, () => {
     console.log(`\n\n\n-------|||Server is running on the port ${PORT}|||-------\n\n\n`);
