@@ -62,7 +62,8 @@ export async function generateGeneralResponse(
 
   ${historyText ? `Previous conversation:\n${historyText}\n\n` : ""}User Question: ${userQuery}
 
-  Please provide a helpful and accurate response in a friendly tone.
+  Please provide a helpful and accurate response in a friendly tone. and make sure to answer the question in the same language as the user's question.,  do not add any external text like Context1 or context2 or any thing technical unless user has asked about it
+  Make sure that the answer does not include like Based on the context or Based on the information provided or any thing like that unless user has asked about it , response should be just like you are replying to someone
 
   Answer:`;
 
