@@ -68,7 +68,26 @@ router.get("/:documentId", authenticateToken, async (req: Request, res: Response
       return sendError(res, "Document not found or access denied", 404);
     }
 
-    return sendSuccess(res, document);
+    // Compute status based on document state
+    let status: string;
+    if (document.fileType === "pdf") {
+      if (!document.content || document.content.trim().length === 0) {
+        status = "processing";
+      } else if (document.content.startsWith("Processing failed:")) {
+        status = "failed";
+      } else {
+        status = "ready";
+      }
+    } else {
+      // For text documents, they're always ready after creation
+      status = "ready";
+    }
+
+    // Return document with computed status field
+    return sendSuccess(res, {
+      ...document,
+      status,
+    });
   } catch (error) {
     console.error("Get document error:", error);
     const message = error instanceof Error ? error.message : "Failed to fetch document";
