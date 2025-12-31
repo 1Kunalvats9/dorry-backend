@@ -161,6 +161,51 @@ Upload and process text content. Creates a document, chunks it, and stores embed
 
 ---
 
+### 2. Ingest PDF
+**POST** `/api/ingest/pdf`
+
+Upload a PDF file for processing. The PDF is uploaded to Cloudinary temporarily, then processed in the background (text extraction, chunking, embedding). The PDF is automatically deleted from Cloudinary after processing completes.
+
+**Headers:**
+- `Authorization: Bearer <token>`
+- `Content-Type: multipart/form-data`
+
+**Request Body (Form Data):**
+- `file`: PDF file (multipart/form-data)
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "data": {
+    "documentId": "document_uuid",
+    "message": "PDF uploaded successfully. Processing in background...",
+    "cloudinaryUrl": "https://res.cloudinary.com/..."
+  }
+}
+```
+
+**Error Response (400):**
+```json
+{
+  "success": false,
+  "error": "PDF file is required"
+}
+```
+
+**Important Notes:**
+- The API responds immediately with a success message
+- PDF processing (text extraction, chunking, embedding) happens in the background
+- The PDF is automatically deleted from Cloudinary after successful processing
+- You can check the document's `content` field later to see if processing completed
+- Processing typically takes a few seconds to a minute depending on PDF size
+
+**When to use:** 
+- User uploads a PDF document from their device
+- User selects a PDF file to ingest into the knowledge base
+
+---
+
 ## Chat Routes (`/api/chat`)
 
 ### 1. Send Message

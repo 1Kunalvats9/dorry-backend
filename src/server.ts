@@ -17,7 +17,7 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 
-const PORT = process.env.PORT || 8080;
+const PORT = process.env.PORT || 3000;
 
 app.use(cors());
 app.use(helmet({
@@ -47,10 +47,19 @@ app.use("/api/ingest", ingestRoutes);
 app.use("/api/chat", chatRoutes);
 app.use("/api/documents", documentRoutes);
 
-initQdrant().catch((err) => {
-  console.error("Failed to initialize Qdrant:", err);
-});
+async function startServer() {
+  try {
+    await initQdrant();
+  } catch (err) {
+    console.error("Failed to initialize Qdrant:", err);
+  }
 
-app.listen(PORT, () => {
+  app.listen(PORT, () => {
     console.log(`\n\n\n-------|||Server is running on the port ${PORT}|||-------\n\n\n`);
+  });
+}
+
+startServer().catch((err) => {
+  console.error("Failed to start server:", err);
+  process.exit(1);
 });

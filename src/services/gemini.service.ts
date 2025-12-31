@@ -13,31 +13,45 @@ export async function generateResponseWithRAG(
 ): Promise<string> {
   const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
+  // Format context naturally without numbered references
   const contextText = contextChunks
-    .map((chunk, index) => `[Context ${index + 1}]\n${chunk.text}`)
+    .map((chunk) => chunk.text.trim())
+    .filter((text) => text.length > 0)
+    .join("\n\n---\n\n");
+
+  // Format conversation history properly
+  const historyText = conversationHistory
+    .map((msg) => {
+      if (msg.role === "user") {
+        return `User: ${msg.content}`;
+      } else {
+        return `Assistant: ${msg.content}`;
+      }
+    })
     .join("\n\n");
 
-  const historyText = conversationHistory
-    .map((msg) => `${msg.role === "user" ? "User" : "Assistant"}: ${msg.content}`)
-    .join("\n");
+  const systemPrompt = `You are a helpful, friendly AI assistant. Answer questions naturally and conversationally, as if you're having a friendly chat with the user.
 
-  const prompt = `You are a helpful AI assistant that answers questions based on the provided context from the user's documents.
+IMPORTANT GUIDELINES:
+- Answer in the SAME LANGUAGE as the user's question
+- Use the provided context to inform your answer, but DO NOT mention "context", "documents", "sources", or reference numbers
+- Respond naturally as if the information comes from your own knowledge
+- Never say things like "Based on the context", "According to the provided information", "From Context 1/2/3", etc.
+- If information is missing from the context, say so naturally without mentioning "context"
+- Be conversational, warm, and human-like in your responses
+- Only use technical terms if the user asks about them specifically
+- Keep responses concise but complete`;
 
-${contextText ? `Here is the relevant context from the user's documents:\n\n${contextText}\n\n` : ""}${historyText ? `Previous conversation:\n${historyText}\n\n` : ""}User Question: ${userQuery}
+  const prompt = `${systemPrompt}
 
-Instructions:
-- Answer the question based primarily on the provided context
-- If the context doesn't contain enough information, say so clearly
-- Be concise and accurate
-- If you reference information from the context, indicate which context section it came from
-- Maintain a helpful and professional tone
+${contextText ? `RELEVANT INFORMATION:\n${contextText}\n\n` : ""}${historyText ? `CONVERSATION HISTORY:\n${historyText}\n\n` : ""}USER QUESTION: ${userQuery}
 
-Answer:`;
+Provide a natural, conversational response:`;
 
   try {
     const result = await model.generateContent(prompt);
     const response = await result.response;
-    return response.text();
+    return response.text().trim();
   } catch (error) {
     console.error("Gemini API error:", error);
     throw new Error(
@@ -55,29 +69,41 @@ export async function generateGeneralResponse(
   const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
   const historyText = conversationHistory
-    .map((msg) => `${msg.role === "user" ? "User" : "Assistant"}: ${msg.content}`)
-    .join("\n");
+    .map((msg) => {
+      if (msg.role === "user") {
+        return `User: ${msg.content}`;
+      } else {
+        return `Assistant: ${msg.content}`;
+      }
+    })
+    .join("\n\n");
 
-  const prompt = `You are a helpful AI assistant.
+  const systemPrompt = `You are a helpful, friendly AI assistant. Answer questions naturally and conversationally.
 
-  ${historyText ? `Previous conversation:\n${historyText}\n\n` : ""}User Question: ${userQuery}
+IMPORTANT GUIDELINES:
+- Answer in the SAME LANGUAGE as the user's question
+- Be conversational, warm, and human-like
+- Never mention "context", "sources", "documents", or technical implementation details
+- Respond as if you're having a natural conversation
+- Keep responses concise but complete`;
 
-  Please provide a helpful and accurate response in a friendly tone. and make sure to answer the question in the same language as the user's question.,  do not add any external text like Context1 or context2 or any thing technical unless user has asked about it
-  Make sure that the answer does not include like Based on the context or Based on the information provided or any thing like that unless user has asked about it , response should be just like you are replying to someone
+  const prompt = `${systemPrompt}
 
-  Answer:`;
+${historyText ? `CONVERSATION HISTORY:\n${historyText}\n\n` : ""}USER QUESTION: ${userQuery}
 
-    try {
-      const result = await model.generateContent(prompt);
-      const response = await result.response;
-      return response.text();
-    } catch (error) {
-      console.error("Gemini API error:", error);
-      throw new Error(
-        error instanceof Error
-          ? `Failed to generate response: ${error.message}`
-          : "Failed to generate response"
-      );
-    }
+Provide a natural, conversational response:`;
+
+  try {
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    return response.text().trim();
+  } catch (error) {
+    console.error("Gemini API error:", error);
+    throw new Error(
+      error instanceof Error
+        ? `Failed to generate response: ${error.message}`
+        : "Failed to generate response"
+    );
+  }
 }
 
