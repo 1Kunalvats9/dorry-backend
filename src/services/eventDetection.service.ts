@@ -42,22 +42,32 @@ export async function detectEventsForDocument(documentId: string) {
     const validEvents = sanitizeEvents(rawResponse);
 
     for (const event of validEvents) {
-        await prisma.detectedEvent.create({
-            data: {
-                userId: document.userId,
-                documentId: document.id,
-                title: event.title,
-                startTime: event.start_time
-                    ? new Date(event.start_time)
-                    : null,
-                endTime: event.end_time
-                    ? new Date(event.end_time)
-                    : null,
-                recurrence: event.recurrence,
-                confidence: event.confidence,
-                sourceText: combinedText.slice(0, 1000),
-            },
-        });
+        const startTime = parseDate(event.start_time);
+        const endTime = parseDate(event.end_time);
+        
+        // Only create event if at least one valid time exists, or if it has recurrence
+        if (!startTime && !endTime && !event.recurrence) {
+            console.warn(`Skipping event "${event.title}" - no valid times or recurrence`);
+            continue;
+        }
+        
+        try {
+            await prisma.detectedEvent.create({
+                data: {
+                    userId: document.userId,
+                    documentId: document.id,
+                    title: event.title,
+                    startTime,
+                    endTime,
+                    recurrence: event.recurrence || null,
+                    confidence: event.confidence,
+                    sourceText: combinedText.slice(0, 1000),
+                },
+            });
+        } catch (error) {
+            console.error(`Failed to create event "${event.title}":`, error);
+            // Continue with other events even if one fails
+        }
     }
 
     return {
@@ -146,6 +156,29 @@ Return ONLY the JSON array, nothing else:
     }
 }
 
+
+/**
+ * Safely parses a date string. Returns null if invalid.
+ */
+function parseDate(dateString: string | null | undefined): Date | null {
+    if (!dateString || typeof dateString !== "string") {
+        return null;
+    }
+    
+    const trimmed = dateString.trim();
+    if (!trimmed) {
+        return null;
+    }
+    
+    const date = new Date(trimmed);
+    
+    // Check if date is valid
+    if (isNaN(date.getTime())) {
+        return null;
+    }
+    
+    return date;
+}
 
 function sanitizeEvents(
     events: LLMDetectedEvent[]
