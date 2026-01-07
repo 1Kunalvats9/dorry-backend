@@ -22,9 +22,10 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  documents Document[]
-  chats     Chat[]
-  chunks    Chunk[]
+  documents      Document[]
+  chats          Chat[]
+  chunks         Chunk[]
+  detectedEvents DetectedEvent[]
 
   @@index([email])
   @@index([googleId])
@@ -39,8 +40,9 @@ model Document {
   content    String   @db.Text
   uploadedAt DateTime @default(now())
 
-  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  chunks Chunk[]
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  chunks         Chunk[]
+  detectedEvents DetectedEvent[]
 
   @@index([userId])
   @@index([uploadedAt])
@@ -76,4 +78,26 @@ model Chat {
 
   @@index([userId])
   @@index([createdAt])
+}
+
+model DetectedEvent {
+  id         String @id @default(uuid())
+  userId     String
+  documentId String
+
+  title      String
+  startTime  DateTime?
+  endTime    DateTime?
+  recurrence String?
+  confidence Float
+
+  sourceText String @db.Text
+
+  createdAt DateTime @default(now())
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([documentId])
 }

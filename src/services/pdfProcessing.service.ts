@@ -2,6 +2,8 @@ import { chunkText } from "./embedding.service.js";
 import { storeChunksInQdrant } from "./qdrant.service.js";
 import prisma from "../config/database.js";
 import { deleteFromCloudinary, CloudinaryUploadResult } from "../middleware/uploadCloudinary.js";
+import {detectEventsForDocument} from "./eventDetection.service.js";
+import {sendError} from "../utils/response.js";
 
 interface ProcessPDFParams {
   documentId: string;
@@ -76,7 +78,7 @@ export async function processPDFInBackground({
 
     console.log(`Stored ${chunks.length} chunks in Qdrant`);
 
-    // Delete from Cloudinary after successful processing
+
     try {
       await deleteFromCloudinary(cloudinaryResult.publicId);
       console.log(`Deleted PDF from Cloudinary: ${cloudinaryResult.publicId}`);
@@ -85,9 +87,12 @@ export async function processPDFInBackground({
         `Failed to delete from Cloudinary (document processed successfully):`,
         cloudinaryError
       );
-      // Don't throw - document is already processed successfully
     }
 
+    detectEventsForDocument(documentId).catch((err)=>{
+      console.error("error in detecting events", err)
+      return
+    })
     console.log(`✅ PDF processing completed for document ${documentId}`);
   } catch (error) {
     console.error(`❌ PDF processing failed for document ${documentId}:`, error);

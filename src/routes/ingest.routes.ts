@@ -7,6 +7,7 @@ import { sendError, sendSuccess } from "../utils/response.js";
 import upload from "../middleware/upload.js";
 import uploadCloudinary, { uploadToCloudinary } from "../middleware/uploadCloudinary.js";
 import { processPDFAsync } from "../services/pdfProcessing.service.js";
+import {detectEventsForDocument} from "../services/eventDetection.service.js";
 
 const router = Router();
 
@@ -102,7 +103,7 @@ router.post(
           cloudinaryResult,
         });
 
-        // Return immediately - processing happens in background
+
         return sendSuccess(res, {
           documentId: document.id,
           message: "PDF uploaded successfully. Processing in background...",

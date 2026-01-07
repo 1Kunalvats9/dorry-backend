@@ -39,6 +39,59 @@ router.get("/", authenticateToken, async (req: Request, res: Response) => {
   }
 });
 
+
+router.get(
+    "/:documentId/events",
+    authenticateToken,
+    async (req: Request, res: Response) => {
+      try {
+        const userId = req.user.id;
+        const { documentId } = req.params;
+
+        const document = await prisma.document.findFirst({
+          where: {
+            id: documentId,
+            userId,
+          },
+          select: { id: true },
+        });
+
+        if (!document) {
+          return sendError(res, "Document not found or access denied", 404);
+        }
+
+        const events = await prisma.detectedEvent.findMany({
+          where: {
+            documentId,
+            userId,
+          },
+          orderBy: {
+            confidence: "desc",
+          },
+          select: {
+            id: true,
+            title: true,
+            startTime: true,
+            endTime: true,
+            recurrence: true,
+            confidence: true,
+            sourceText: true,
+            createdAt: true,
+          },
+        });
+
+        return sendSuccess(res, {
+          events,
+          count: events.length,
+        });
+      } catch (err) {
+        console.error("Fetch detected events error:", err);
+        return sendError(res, "Failed to fetch detected events", 500);
+      }
+    }
+);
+
+
 router.get("/:documentId", authenticateToken, async (req: Request, res: Response) => {
   try {
     const userId = req.user.id;
