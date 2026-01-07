@@ -77,8 +77,9 @@ Rules:
 - Only extract events with explicit times or schedules.
 - Do NOT guess or invent.
 - Skip anything uncertain.
-- Output ONLY valid JSON.
-- If no events exist, return [].
+- Output ONLY valid JSON array. No explanations, no markdown, no text before or after.
+- Start your response with [ and end with ]
+- If no events exist, return exactly: []
 
 Schema:
 [
@@ -95,15 +96,53 @@ Text:
 """
 ${text}
 """
+
+Return ONLY the JSON array, nothing else:
 `;
 
-    const response = await generateGeneralResponse(prompt);
-
     try {
-        return JSON.parse(response);
-    } catch {
-        console.warn("Failed to parse event detection JSON");
-        return [];
+        const response = await generateGeneralResponse(prompt);
+        
+        // Try to extract JSON from markdown code blocks if present
+        let jsonString = response.trim();
+        const jsonMatch = jsonString.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+        if (jsonMatch) {
+            jsonString = jsonMatch[1].trim();
+        } else {
+            // Try to find JSON array/object in the response
+            // Look for first [ or { and last matching ] or }
+            const arrayMatch = jsonString.match(/\[[\s\S]*\]/);
+            const objectArrayMatch = jsonString.match(/\[\s*\{[\s\S]*\}\s*\]/);
+            if (objectArrayMatch) {
+                jsonString = objectArrayMatch[0];
+            } else if (arrayMatch) {
+                jsonString = arrayMatch[0];
+            }
+        }
+        
+        try {
+            const parsed = JSON.parse(jsonString);
+            if (!Array.isArray(parsed)) {
+                console.warn("Parsed JSON is not an array, got:", typeof parsed);
+                return [];
+            }
+            return parsed;
+        } catch (parseError) {
+            console.warn("Failed to parse event detection JSON");
+            console.warn("Response received:", response.substring(0, 500));
+            if (parseError instanceof Error) {
+                console.warn("Parse error:", parseError.message);
+            }
+            return [];
+        }
+    } catch (error) {
+        // Handle API errors (like 503 Service Unavailable)
+        if (error instanceof Error) {
+            console.error("Error calling Gemini API for event detection:", error.message);
+            // Don't throw - return empty array to prevent breaking the flow
+            return [];
+        }
+        throw error;
     }
 }
 

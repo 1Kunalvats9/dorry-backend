@@ -14,7 +14,7 @@ const adapter = new PrismaPg(pool);
 
 const prisma = global.prisma || new PrismaClient({
     adapter,
-    log: ["query", "error", "warn"],
+    log: ["error", "warn"],
 });
 
 if (process.env.NODE_ENV !== 'production') {

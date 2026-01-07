@@ -53,7 +53,20 @@ Provide a natural, conversational response:`;
     const response = await result.response;
     return response.text().trim();
   } catch (error) {
-    console.error("Gemini API error:", error);
+    // Log full error details for debugging
+    if (error instanceof Error) {
+      const isServiceUnavailable = error.message.includes("503") || 
+                                   error.message.includes("Service Unavailable") ||
+                                   error.message.includes("overloaded");
+      
+      if (isServiceUnavailable) {
+        console.error("Gemini API is temporarily unavailable (503):", error.message);
+      } else {
+        console.error("Gemini API error:", error.message);
+      }
+    } else {
+      console.error("Gemini API error:", error);
+    }
     throw new Error(
       error instanceof Error
         ? `Failed to generate response: ${error.message}`
@@ -98,7 +111,20 @@ Provide a natural, conversational response:`;
     const response = await result.response;
     return response.text().trim();
   } catch (error) {
-    console.error("Gemini API error:", error);
+    // Log full error details for debugging
+    if (error instanceof Error) {
+      const isServiceUnavailable = error.message.includes("503") || 
+                                   error.message.includes("Service Unavailable") ||
+                                   error.message.includes("overloaded");
+      
+      if (isServiceUnavailable) {
+        console.error("Gemini API is temporarily unavailable (503):", error.message);
+      } else {
+        console.error("Gemini API error:", error.message);
+      }
+    } else {
+      console.error("Gemini API error:", error);
+    }
     throw new Error(
       error instanceof Error
         ? `Failed to generate response: ${error.message}`
