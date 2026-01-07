@@ -19,12 +19,15 @@ export async function processPDFInBackground({
   cloudinaryResult,
 }: ProcessPDFParams): Promise<void> {
   try {
-    console.log(`Starting PDF processing for document ${documentId}`);
+    console.log("========== PDF PROCESSING START ==========");
+    console.log("documentId:", documentId);
+    console.log("userId:", userId);
 
     // Dynamic import for pdf-parse (CommonJS module)
     const pdfParse = (await import("pdf-parse")).default;
 
     // Extract text from PDF
+    console.log("Extracting text from PDF...");
     const pdfData = await pdfParse(pdfBuffer);
     const extractedText = pdfData.text;
 
@@ -32,7 +35,7 @@ export async function processPDFInBackground({
       throw new Error("No text could be extracted from the PDF");
     }
 
-    console.log(`Extracted ${extractedText.length} characters from PDF`);
+    console.log("PDF text extraction complete:", extractedText.length, "characters");
 
     // Update document with extracted content
     await prisma.document.update({
@@ -43,14 +46,16 @@ export async function processPDFInBackground({
     });
 
     // Chunk the text
+    console.log("Creating text chunks...");
     const rawChunks = chunkText(extractedText);
-    console.log(`Created ${rawChunks.length} chunks from PDF`);
+    console.log("Created", rawChunks.length, "chunks");
 
     if (rawChunks.length === 0) {
       throw new Error("No chunks could be created from the extracted text");
     }
 
     // Create chunks in database
+    console.log("Storing chunks in database...");
     const chunks = await Promise.all(
       rawChunks.map((content, index) =>
         prisma.chunk.create({
@@ -64,9 +69,10 @@ export async function processPDFInBackground({
       )
     );
 
-    console.log(`Stored ${chunks.length} chunks in database`);
+    console.log("Chunks stored in database:", chunks.length);
 
     // Store chunks in Qdrant
+    console.log("Storing chunks in Qdrant vector database...");
     await storeChunksInQdrant({
       userId,
       documentId,
@@ -76,38 +82,40 @@ export async function processPDFInBackground({
       })),
     });
 
-    console.log(`Stored ${chunks.length} chunks in Qdrant`);
+    console.log("Chunks stored in Qdrant");
 
-
+    // Delete PDF from Cloudinary
     try {
       await deleteFromCloudinary(cloudinaryResult.publicId);
-      console.log(`Deleted PDF from Cloudinary: ${cloudinaryResult.publicId}`);
+      console.log("Deleted PDF from Cloudinary");
     } catch (cloudinaryError) {
-      console.error(
-        `Failed to delete from Cloudinary (document processed successfully):`,
-        cloudinaryError
-      );
+      console.error("Failed to delete from Cloudinary (but processing succeeded):", cloudinaryError);
     }
 
-    detectEventsForDocument(documentId).catch((err)=>{
-      console.error("error in detecting events", err)
-      return
-    })
-    console.log(`✅ PDF processing completed for document ${documentId}`);
+    // Detect events from the document content
+    console.log("Starting event detection...");
+    try {
+      const eventDetectionResult = await detectEventsForDocument(documentId);
+      console.log("Event detection completed:", eventDetectionResult);
+    } catch (eventError) {
+      console.error("Event detection failed (non-blocking):", eventError);
+      // Don't throw - event detection failure shouldn't stop PDF processing
+    }
+
+    console.log("========== PDF PROCESSING COMPLETE ==========");
   } catch (error) {
-    console.error(`❌ PDF processing failed for document ${documentId}:`, error);
+    console.error("========== PDF PROCESSING FAILED ==========");
+    console.error("Error details:", error);
 
     // Try to delete from Cloudinary even on error (cleanup)
     try {
       await deleteFromCloudinary(cloudinaryResult.publicId);
-      console.log(
-        `Cleaned up Cloudinary file after processing error: ${cloudinaryResult.publicId}`
-      );
+      console.log("Cleaned up Cloudinary file");
     } catch (cleanupError) {
-      console.error(`Failed to cleanup Cloudinary file:`, cleanupError);
+      console.error("Failed to cleanup Cloudinary file:", cleanupError);
     }
 
-    // Update document to indicate failure (optional - you can add a status field)
+    // Update document to indicate failure
     try {
       await prisma.document.update({
         where: { id: documentId },
@@ -116,10 +124,9 @@ export async function processPDFInBackground({
         },
       });
     } catch (updateError) {
-      console.error(`Failed to update document with error status:`, updateError);
+      console.error("Failed to update document with error status:", updateError);
     }
 
-    // Re-throw error if you want to handle it elsewhere
     throw error;
   }
 }

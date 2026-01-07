@@ -72,30 +72,43 @@ router.post(
       try {
         const userId = req.user.id;
   
+        console.log("========== PDF UPLOAD START ==========");
+        console.log("userId:", userId);
+        
         if (!req.file) {
+          console.log("ERROR: No file provided in request");
           return sendError(res, "PDF file is required", 400);
         }
 
+        console.log("File received:", req.file.originalname);
+        console.log("File size:", req.file.size, "bytes");
+
         // Upload PDF to Cloudinary
+        console.log("Uploading PDF to Cloudinary...");
         const cloudinaryResult = await uploadToCloudinary(
           req.file.buffer,
           req.file.originalname
         );
 
-        console.log(`PDF uploaded to Cloudinary: ${cloudinaryResult.publicId}`);
+        console.log("PDF uploaded to Cloudinary:", cloudinaryResult.publicId);
+        console.log("Cloudinary URL:", cloudinaryResult.secureUrl);
 
         // Create document record in database
+        console.log("Creating document record in database...");
         const document = await prisma.document.create({
           data: {
             userId,
             filename: req.file.originalname,
             fileType: "pdf",
             fileUrl: cloudinaryResult.secureUrl,
-            content: "", // Will be populated during background processing
+            content: "",
           },
         });
 
+        console.log("Document created in database:", document.id);
+
         // Trigger background processing (non-blocking)
+        console.log("Triggering background PDF processing...");
         processPDFAsync({
           documentId: document.id,
           userId,
@@ -103,14 +116,16 @@ router.post(
           cloudinaryResult,
         });
 
-
+        console.log("========== PDF UPLOAD COMPLETE ==========");
+        
         return sendSuccess(res, {
           documentId: document.id,
           message: "PDF uploaded successfully. Processing in background...",
           cloudinaryUrl: cloudinaryResult.secureUrl,
         });
       } catch (err) {
-        console.error("PDF upload error:", err);
+        console.error("========== PDF UPLOAD FAILED ==========");
+        console.error("Error:", err);
         const errorMessage = err instanceof Error ? err.message : "Failed to upload PDF";
         return sendError(res, errorMessage, 500);
       }
