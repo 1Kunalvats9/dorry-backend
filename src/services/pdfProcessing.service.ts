@@ -90,15 +90,8 @@ export async function processPDFInBackground({
     }
 
     detectEventsForDocument(documentId).catch((err)=>{
-      if (err instanceof Error) {
-        console.error("Error detecting events for document:", err.message);
-        // Log stack trace only in development
-        if (process.env.NODE_ENV !== 'production') {
-          console.error("Stack trace:", err.stack);
-        }
-      } else {
-        console.error("Error detecting events for document:", err);
-      }
+      console.error("error in detecting events", err)
+      return
     })
     console.log(`✅ PDF processing completed for document ${documentId}`);
   } catch (error) {
