@@ -48,6 +48,8 @@ router.get(
         const userId = req.user.id;
         const { documentId } = req.params;
 
+        console.log(`📋 Fetching events for document ${documentId}, user ${userId}`);
+
         const document = await prisma.document.findFirst({
           where: {
             id: documentId,
@@ -57,6 +59,7 @@ router.get(
         });
 
         if (!document) {
+          console.log(`Document not found or access denied: ${documentId}`);
           return sendError(res, "Document not found or access denied", 404);
         }
 
@@ -79,6 +82,8 @@ router.get(
             createdAt: true,
           },
         });
+
+        console.log(`✅ Found ${events.length} events for document ${documentId}`);
 
         return sendSuccess(res, {
           events,
